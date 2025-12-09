@@ -76,7 +76,7 @@ b2 = np.zeros((1, output_size))
 # =======================================================
 
 # Doğrusal (Z = W.X + b) işlemini "doğrusal olmayan" bir hale getirir. Negatif her şeyi siler, pozitifleri olduğu gibi bırakır.
-# Örn: Ev fiyatlarını sadece düz çizgilerle (lineer) açıklayamazsın. ReLU ağa "eğrileri" anlama gücü verir.
+# Örn: Ev fiyatlarını sadece düz çizgilerle (lineer) açıklayamazsın. ReLU ağa "eğrileri" öğrenir.
 
 def relu(Z):
     return np.maximum(0, Z)
@@ -130,7 +130,6 @@ def backward_propagation(X, y_true, Y_pred, W1, W2, cache):
     (Z1, A1, Z2, A2) = cache 
 
     # Çıktı Katmanı Hata Sinyali 
-    # Not: Loss formülünü sade tutmak için L2 cezasını dW adımında uygulayacağız.
     dZ2 = (2/m) * (Y_pred - y_true)
     
     # Çıktı Katmanı Gradyanları
@@ -158,9 +157,8 @@ def backward_propagation(X, y_true, Y_pred, W1, W2, cache):
 # 6. OPTİMİZASYON VE EĞİTİM DÖNGÜSÜ (DENEME 29'UN PARAMETRELERİ)
 # =======================================================
 
-lr = 0.01          # Deneme 29'dan
-epochs = 15000     # Önceki 20000 yerine Overfitting'i azaltmak için 15000
-# Not: W1 ve W2 ağırlıkları kodun başında (Aşama 2'de) zaten belirlendi ve HIDDEN_SIZE=10.
+lr = 0.01
+epochs = 15000     
 
 print(f"\n=== L2 DÜZENLİLEŞTİRMELİ EĞİTİM BAŞLIYOR (LR: {lr}, Epochs: {epochs}, Gizli: 10) ===")
 
@@ -169,7 +167,7 @@ for epoch in range(epochs):
     # 1. İLERİ YAYILIM (EĞİTİM)
     Y_pred_train, cache = forward_propagation(X_train, W1, b1, W2, b2)
     
-    # 2. GERİ YAYILIM VE AĞIRLIK GÜNCELLEMESİ (L2 cezası içerir)
+    # 2. GERİ YAYILIM VE AĞIRLIK GÜNCELLEMESİ (L2 cezalandırması içerir)
     dW1, db1, dW2, db2 = backward_propagation(X_train, y_train, Y_pred_train, W1, W2, cache)
     
     # 3. AĞIRLIK GÜNCELLEMESİ
@@ -180,7 +178,7 @@ for epoch in range(epochs):
     
     # İlerleme Kaydı ve VALIDATION KONTROLÜ
     if epoch % 3000 == 0: 
-        # Loss hesaplamada L2 terimini göstermiyoruz, sadece MSE'ye odaklanıyoruz
+        #  MSE
         train_loss = calculate_loss(Y_pred_train, y_train) 
         Y_pred_val, _ = forward_propagation(X_val, W1, b1, W2, b2)
         val_loss = calculate_loss(Y_pred_val, y_val)

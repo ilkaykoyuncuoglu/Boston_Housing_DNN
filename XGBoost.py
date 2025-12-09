@@ -3,7 +3,6 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
-from sklearn.datasets import fetch_california_housing # Eğer Boston dosyanız yoksa alternatif olarak kullanılır
 
 # ==============================================================================
 # 1. VERİ YÜKLEME VE BÖLME
@@ -11,28 +10,17 @@ from sklearn.datasets import fetch_california_housing # Eğer Boston dosyanız y
 
 print("=== VERİ YÜKLEME VE ÖN İŞLEME BAŞLIYOR ===")
 
-# --- VERİ YÜKLEME YÖNTEMİ SEÇİMİ ---
-try:
-    # YÖNTEM A: Sizin manuel olarak yüklediğiniz 'boston.csv' dosyasını kullanır
-    # NOT: Dosyanın, kodla aynı dizinde olması gerekir.
-    data = pd.read_csv("boston.csv", sep='\s+', header=None)
-    data.columns = [
+data = pd.read_csv("boston.csv", sep='\s+', header=None)
+data.columns = [
         'CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE', 'DIS', 
         'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MEDV'
     ]
     
-    # Özellikler (X) ve Hedef (y) ayırma
-    X_raw = data.drop('MEDV', axis=1).values 
-    y_raw = (data['MEDV'] * 100).values.reshape(-1, 1) # Fiyatları 1000'lik birimlere çevirdik
-    feature_names = data.drop('MEDV', axis=1).columns.tolist()
+# Özellikler (X) ve Hedef (y) ayırma
+X_raw = data.drop('MEDV', axis=1).values 
+y_raw = (data['MEDV'] * 100).values.reshape(-1, 1) # Fiyatları 1000'lik birimlere çevirdik
+feature_names = data.drop('MEDV', axis=1).columns.tolist()
 
-except FileNotFoundError:
-    # YÖNTEM B: Eğer 'boston.csv' bulunamazsa, scikit-learn'den California verisi kullanılır
-    print("UYARI: 'boston.csv' dosyası bulunamadı. Yerine California Housing verisi kullanılıyor.")
-    data_sklearn = fetch_california_housing()
-    X_raw = data_sklearn.data
-    y_raw = (data_sklearn.target * 100).reshape(-1, 1) # Fiyatları uyumlu hale getir
-    feature_names = data_sklearn.feature_names.tolist()
 
 # Veri setini Eğitim (%80) ve Test (%20) olarak ayırma
 X_train_raw, X_test_raw, y_train_raw, y_test_raw = train_test_split(
