@@ -112,90 +112,91 @@ def calculate_loss(Y_pred, Y_true):
     loss = np.sum(squared_error) / m
     return loss
 
+def de_normalize(Y_norm, Y_mean, Y_std):
+    """Normalize edilmiş tahmini orijinal fiyat aralığına çevirir."""
+    return (Y_norm * Y_std) + Y_mean
+
 
 # =======================================================
-# 5. GERİ YAYILIM (BACKWARD PROPAGATION)
+# 5. GERİ YAYILIM (BACKWARD PROPAGATION) - L2 DÜZENLİLEŞTİRME EKLENDİ
 # =======================================================
-# biaslarda türev alınınca 1 olur formülden dolayı. X@W1+b1 türevi 1 olur.
 
-def backward_propagation(X, y_true, Y_pred, W2, cache):
+# L2 Düzenlileştirme Katsayısı (Lambda). Çok küçük olmalıdır.
+LAMBDA = 0.0019
+
+def backward_propagation(X, y_true, Y_pred, W1, W2, cache):
     
-    m = X.shape[0] # Mini-Batch (Örnek) sayısı
-    (Z1, A1, Z2, A2) = cache # İleri yayılımda sakladığımız ara değerler.
+    m = X.shape[0] 
+    (Z1, A1, Z2, A2) = cache 
 
-    # Çıktı Katmanı Hata Sinyali (Başlangıç)
-    # dZ2: Loss'un Z2'ye göre türevi (Hata sinyalinin yönü ve büyüklüğü)
-    # Math: Loss func(J) = (1/M)*(Toplam(Z2-y))kare, türevi alınınca kalan (2/m) * (Y_pred - y_true), çünkü Z2 = Y_pred (son cıktı).
+    # Çıktı Katmanı Hata Sinyali 
+    # Not: Loss formülünü sade tutmak için L2 cezasını dW adımında uygulayacağız.
     dZ2 = (2/m) * (Y_pred - y_true)
     
-    # Çıktı Katmanı Gradyanları (dW2 ve db2
-    # A. Ağırlık Gradyanı (dW2)
-    # Mantık: Hata sinyalini (dZ2), önceki katmanın çıktısı (A1) kadar çarparız.
+    # Çıktı Katmanı Gradyanları
     dW2 = A1.T @ dZ2 
     db2 = np.sum(dZ2, axis=0, keepdims=True)
+    
+    # L2 CEZASI UYGULAMASI (Ağırlık Gradyanlarına eklenir)
+    dW2 += LAMBDA * W2 # Gradyan + Lambda * W
+    
     dA1 = dZ2 @ W2.T
 
-    # Gizli Katman Gradyanları (dZ1, dW1 ve db1)
-    # D. ReLU Türevi ve Hata Sinyali (dZ1)
-    # Mantık: ReLU'nun türevi pozitife 1, negatife 0'dır. dA1 sinyalini sadece Z1'in pozitif olduğu yerlerde aktarırız.
+    # Gizli Katman Gradyanları 
     dZ1 = dA1 * (Z1 > 0) 
     
-    # Mantık: Hata sinyalini (dZ1), en baştaki girdi (X) kadar çarparız.
     dW1 = X.T @ dZ1
-    # Mantık: dZ1'lerin toplamı alınır.
     db1 = np.sum(dZ1, axis=0, keepdims=True)
+    
+    # L2 CEZASI UYGULAMASI (Ağırlık Gradyanlarına eklenir)
+    dW1 += LAMBDA * W1 # Gradyan + Lambda * W
     
     return dW1, db1, dW2, db2
 
 
 # =======================================================
-# 6. OPTİMİZASYON VE EĞİTİM DÖNGÜSÜ
+# 6. OPTİMİZASYON VE EĞİTİM DÖNGÜSÜ (DENEME 29'UN PARAMETRELERİ)
 # =======================================================
 
-lr = 0.001 # Öğrenme hızı (Loss'u azaltmak için atılacak adımın büyüklüğü)
-epochs = 10000 # Veri setini baştan sona kaç kez göreceğimiz
-loss_history = []
+lr = 0.01          # Deneme 29'dan
+epochs = 15000     # Önceki 20000 yerine Overfitting'i azaltmak için 15000
+# Not: W1 ve W2 ağırlıkları kodun başında (Aşama 2'de) zaten belirlendi ve HIDDEN_SIZE=10.
+
+print(f"\n=== L2 DÜZENLİLEŞTİRMELİ EĞİTİM BAŞLIYOR (LR: {lr}, Epochs: {epochs}, Gizli: 10) ===")
 
 for epoch in range(epochs):
     
-    # 1. İleri Yayılım (Eğitim Datası)
+    # 1. İLERİ YAYILIM (EĞİTİM)
     Y_pred_train, cache = forward_propagation(X_train, W1, b1, W2, b2)
     
+    # 2. GERİ YAYILIM VE AĞIRLIK GÜNCELLEMESİ (L2 cezası içerir)
+    dW1, db1, dW2, db2 = backward_propagation(X_train, y_train, Y_pred_train, W1, W2, cache)
     
-    # 2 Hata Hesaplama
-    train_loss = calculate_loss(Y_pred_train, y_train)
-    loss_history.append(train_loss)
-
-    # 3. Geri Yayılım
-    dW1, db1, dW2, db2 = backward_propagation(X_train, y_train, Y_pred_train, W2, cache)
-    
-    # 4. Ağırlık Güncellemesi
+    # 3. AĞIRLIK GÜNCELLEMESİ
     W1 = W1 - lr * dW1
     b1 = b1 - lr * db1
     W2 = W2 - lr * dW2
     b2 = b2 - lr * db2
     
-    # 5. İlerleme Kaydı ve Validation.
-    if epoch % 1000 == 0: 
-        # Validation Loss'u hesapla
+    # İlerleme Kaydı ve VALIDATION KONTROLÜ
+    if epoch % 3000 == 0: 
+        # Loss hesaplamada L2 terimini göstermiyoruz, sadece MSE'ye odaklanıyoruz
+        train_loss = calculate_loss(Y_pred_train, y_train) 
         Y_pred_val, _ = forward_propagation(X_val, W1, b1, W2, b2)
         val_loss = calculate_loss(Y_pred_val, y_val)
         
         print(f"Epoch {epoch}: Train Loss = {train_loss:.4f} | Validation Loss = {val_loss:.4f}")
 
-final_train_loss = train_loss 
+# Eğitim bitti, son Train Loss'u kaydet
+Y_pred_train, _ = forward_propagation(X_train, W1, b1, W2, b2)
+final_train_loss = calculate_loss(Y_pred_train, y_train)
 
 
 # =======================================================
 # 7. MODEL DEĞERLENDİRMESİ (TEST)
 # =======================================================
 
-
-def de_normalize(Y_norm, Y_mean, Y_std):
-    """Normalize edilmiş tahmini orijinal fiyat aralığına çevirir."""
-    return (Y_norm * Y_std) + Y_mean
-
-# 1. FİNAL TEST SETİ TAHMİNİ (Hiç görmediği veri)
+# 1. FİNAL TEST SETİ TAHMİNİ
 Y_test_pred, _ = forward_propagation(X_test, W1, b1, W2, b2)
 
 # 2. TEST HATA HESAPLAMA
@@ -205,10 +206,11 @@ print(f"\nEğitim Sonrası Nihai TRAIN Loss: {final_train_loss:.4f}")
 print(f"Eğitim Sonrası Nihai TEST Loss: {final_test_loss:.4f}")
 
 # 3. OVERFITTING KONTROLÜ
-if final_test_loss > final_train_loss * 1.2:
-    print("UYARI: Test Loss, Train Loss'tan belirgin şekilde yüksek. Aşırı Uyum (Overfitting) riski var!")
+oran = final_test_loss / final_train_loss
+if oran > 1.2:
+    print(f"UYARI: Test Loss, Train Loss'un {oran:.2f} katı. Overfitting riski devam ediyor!")
 else:
-    print("BAŞARILI: Test ve Train Loss birbirine yakın. Model genelleme yapıyor.")
+    print(f"BAŞARILI: Test Loss, Train Loss'un {oran:.2f} katı. Model iyi genelleme yapıyor.")
 
 # 4. TEST SETİ ÜZERİNDE MAE HESAPLAMA
 Y_test_pred_original = de_normalize(Y_test_pred, y_mean, y_std)
@@ -221,19 +223,11 @@ print(f"\nTEST Seti Ortalama Mutlak Hata (MAE): {MAE:.2f} bin Dolar")
 # 8. YENİ BİR VERİ İLE TAHMİN ETME (INFERENCE)
 # =======================================================
 
-# Örnek Giriş (Ortalama özelliklere sahip bir ev)
 X_new = X_mean.reshape(1, -1) 
-
 print("\n=== Yeni Bir Veri İle Tahmin ===")
-
-# 1. Giriş Verisini Normalize Et (Eğitim istatistikleri kullanılır)
 X_new_norm = (X_new - X_mean) / X_std 
 
-# 2. İleri Yayılımı Çalıştır (Tahmini Yap)
 Y_new_pred_norm, _ = forward_propagation(X_new_norm, W1, b1, W2, b2)
-
-# 3. Tahmini Geri Ölçeklendir (Dolar Cinsine Çevir)
 Y_new_pred_original = de_normalize(Y_new_pred_norm, y_mean, y_std)
 
-# 4. Sonucu Yazdır
 print(f"Hipotetik Evin Tahmini Fiyatı: {Y_new_pred_original[0][0]:.2f} bin Dolar")

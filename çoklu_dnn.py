@@ -147,93 +147,120 @@ def backward_propagation(X, y_true, Y_pred, W2, cache):
     
     return dW1, db1, dW2, db2
 
-
-# =======================================================
-# 6. OPTİMİZASYON VE EĞİTİM DÖNGÜSÜ
-# =======================================================
-
-lr = 0.001 # Öğrenme hızı (Loss'u azaltmak için atılacak adımın büyüklüğü)
-epochs = 10000 # Veri setini baştan sona kaç kez göreceğimiz
-loss_history = []
-
-for epoch in range(epochs):
-    
-    # 1. İleri Yayılım (Eğitim Datası)
-    Y_pred_train, cache = forward_propagation(X_train, W1, b1, W2, b2)
-    
-    
-    # 2 Hata Hesaplama
-    train_loss = calculate_loss(Y_pred_train, y_train)
-    loss_history.append(train_loss)
-
-    # 3. Geri Yayılım
-    dW1, db1, dW2, db2 = backward_propagation(X_train, y_train, Y_pred_train, W2, cache)
-    
-    # 4. Ağırlık Güncellemesi
-    W1 = W1 - lr * dW1
-    b1 = b1 - lr * db1
-    W2 = W2 - lr * dW2
-    b2 = b2 - lr * db2
-    
-    # 5. İlerleme Kaydı ve Validation.
-    if epoch % 1000 == 0: 
-        # Validation Loss'u hesapla
-        Y_pred_val, _ = forward_propagation(X_val, W1, b1, W2, b2)
-        val_loss = calculate_loss(Y_pred_val, y_val)
-        
-        print(f"Epoch {epoch}: Train Loss = {train_loss:.4f} | Validation Loss = {val_loss:.4f}")
-
-final_train_loss = train_loss 
-
-
-# =======================================================
-# 7. MODEL DEĞERLENDİRMESİ (TEST)
-# =======================================================
-
-
 def de_normalize(Y_norm, Y_mean, Y_std):
     """Normalize edilmiş tahmini orijinal fiyat aralığına çevirir."""
     return (Y_norm * Y_std) + Y_mean
 
-# 1. FİNAL TEST SETİ TAHMİNİ (Hiç görmediği veri)
-Y_test_pred, _ = forward_propagation(X_test, W1, b1, W2, b2)
+# =======================================================
+# 6. HİPERPARAMETRE IZGARA ARAMASI (GRID SEARCH)
+# =======================================================
 
-# 2. TEST HATA HESAPLAMA
-final_test_loss = calculate_loss(Y_test_pred, y_test)
+# Denenecek Hiperparametreler
+lr_list = [0.1, 0.01, 0.005, 0.001]
+epochs_list = [5000, 10000, 15000, 20000]
+hidden_size_list = [8, 10, 15, 20]
 
-print(f"\nEğitim Sonrası Nihai TRAIN Loss: {final_train_loss:.4f}")
-print(f"Eğitim Sonrası Nihai TEST Loss: {final_test_loss:.4f}")
+results = [] # Sonuçları tablo halinde tutmak için
 
-# 3. OVERFITTING KONTROLÜ
-if final_test_loss > final_train_loss * 1.2:
-    print("UYARI: Test Loss, Train Loss'tan belirgin şekilde yüksek. Aşırı Uyum (Overfitting) riski var!")
-else:
-    print("BAŞARILI: Test ve Train Loss birbirine yakın. Model genelleme yapıyor.")
+print("\n=== HİPERPARAMETRE IZGARA ARAMASI BAŞLIYOR ===")
+deneme_sayisi = 0
 
-# 4. TEST SETİ ÜZERİNDE MAE HESAPLAMA
-Y_test_pred_original = de_normalize(Y_test_pred, y_mean, y_std)
-y_test_true_original = de_normalize(y_test, y_mean, y_std)
-MAE = np.mean(np.abs(Y_test_pred_original - y_test_true_original))
-print(f"\nTEST Seti Ortalama Mutlak Hata (MAE): {MAE:.2f} bin Dolar")
+# --- Ana Grid Search Döngüsü ---
+for lr in lr_list:
+    for epochs in epochs_list:
+        for HIDDEN_SIZE in hidden_size_list:
+            deneme_sayisi += 1
+            print(f"\n--- Deneme {deneme_sayisi} | LR: {lr}, Epoch: {epochs}, Gizli: {HIDDEN_SIZE} ---")
+            
+            # 1. Ağırlıkları Yeniden Başlat (Her deneme bağımsız olmalı)
+            INPUT_SIZE = X_train.shape[1] 
+            OUTPUT_SIZE = 1
+            
+            W1 = np.random.randn(INPUT_SIZE, HIDDEN_SIZE) * 0.01
+            b1 = np.zeros((1, HIDDEN_SIZE))
+            W2 = np.random.randn(HIDDEN_SIZE, OUTPUT_SIZE) * 0.01 
+            b2 = np.zeros((1, OUTPUT_SIZE))
+            
+            # 2. Eğitim Döngüsü
+            for epoch in range(epochs):
+                # İLERİ YAYILIM
+                Y_pred_train, cache = forward_propagation(X_train, W1, b1, W2, b2)
+                
+                # GERİ YAYILIM VE GÜNCELLEME
+                dW1, db1, dW2, db2 = backward_propagation(X_train, y_train, Y_pred_train, W2, cache)
+                
+                W1 = W1 - lr * dW1
+                b1 = b1 - lr * db1
+                W2 = W2 - lr * dW2
+                b2 = b2 - lr * db2
+            
+            # Eğitim bitti, son Train Loss'u kaydet
+            final_train_loss = calculate_loss(Y_pred_train, y_train) 
+            
+            
+            # 3. TEST VE MAE HESAPLAMA (DEĞERLENDİRME)
+            
+            # TEST SETİ TAHMİNİ
+            Y_test_pred, _ = forward_propagation(X_test, W1, b1, W2, b2)
+            final_test_loss = calculate_loss(Y_test_pred, y_test)
+
+            # MAE HESAPLAMA
+            Y_test_pred_original = de_normalize(Y_test_pred, y_mean, y_std)
+            y_test_true_original = de_normalize(y_test, y_mean, y_std)
+            MAE = np.mean(np.abs(Y_test_pred_original - y_test_true_original))
+            
+            # 4. HİPOTETİK FİYAT TAHMİNİ
+            
+            # Giriş Verisini Normalize Et (X_mean)
+            X_new = X_mean.reshape(1, -1) 
+            X_new_norm = (X_new - X_mean) / X_std 
+            
+            # Tahmini Yap ve Geri Ölçeklendir
+            Y_new_pred_norm, _ = forward_propagation(X_new_norm, W1, b1, W2, b2)
+            Y_new_pred_original = de_normalize(Y_new_pred_norm, y_mean, y_std)
+            hipotetik_fiyat = Y_new_pred_original[0][0]
+            
+            
+            # 5. Sonuçları Kaydet ve Yazdır
+            
+            durum = "Başarılı" if final_test_loss < final_train_loss * 1.2 else "Overfitting"
+            
+            results.append({
+                'LR': lr,
+                'Epochs': epochs,
+                'Gizli': HIDDEN_SIZE,
+                'MAE': MAE,
+                'Hip_Fiyat': hipotetik_fiyat,
+                'T_Loss': final_train_loss,
+                'V_Loss': final_test_loss,
+                'Durum': durum
+            })
+            
+            print(f"   Train Loss: {final_train_loss:.4f}, Test Loss: {final_test_loss:.4f}")
+            print(f"   MAE: {MAE:.2f}K $, Hipotetik Fiyat: {hipotetik_fiyat:.2f}K $")
 
 
 # =======================================================
-# 8. YENİ BİR VERİ İLE TAHMİN ETME (INFERENCE)
+# 7. DENEY SONUÇLARININ TABLOLANMASI
 # =======================================================
 
-# Örnek Giriş (Ortalama özelliklere sahip bir ev)
-X_new = X_mean.reshape(1, -1) 
+print("\n\n=== NİHAİ PERFORMANS TABLOSU (Grid Search) ===")
 
-print("\n=== Yeni Bir Veri İle Tahmin ===")
+# Pandas kullanarak tabloyu güzelleştirelim
+results_df = pd.DataFrame(results)
 
-# 1. Giriş Verisini Normalize Et (Eğitim istatistikleri kullanılır)
-X_new_norm = (X_new - X_mean) / X_std 
+# Hipotetik fiyatın ortalamaya (22.5K $) ne kadar yakın olduğunu ölçen bir metrik ekleyelim
+avg_price_boston = 22.53 # Veri setinin yaklaşık ortalaması
+results_df['Sapma'] = np.abs(results_df['Hip_Fiyat'] - avg_price_boston)
 
-# 2. İleri Yayılımı Çalıştır (Tahmini Yap)
-Y_new_pred_norm, _ = forward_propagation(X_new_norm, W1, b1, W2, b2)
+# Sonuçları en düşük MAE'ye göre sıralayalım
+results_df_sorted = results_df.sort_values(by='MAE', ascending=True)
 
-# 3. Tahmini Geri Ölçeklendir (Dolar Cinsine Çevir)
-Y_new_pred_original = de_normalize(Y_new_pred_norm, y_mean, y_std)
+# Gerekli sütunları yuvarlayalım
+results_df_sorted = results_df_sorted.round({
+    'MAE': 2, 'Hip_Fiyat': 2, 'T_Loss': 4, 'V_Loss': 4, 'Sapma': 2
+})
 
-# 4. Sonucu Yazdır
-print(f"Hipotetik Evin Tahmini Fiyatı: {Y_new_pred_original[0][0]:.2f} bin Dolar")
+print(results_df_sorted)
+
+print("\nEN İYİ MODEL: En düşük MAE ve Sapma değerine sahip olan modeldir.")
