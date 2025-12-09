@@ -26,13 +26,10 @@ En güçlü DNN modeline karşı, tablo verilerinde üstünlüğü kanıtlanmı�
  
 6.	Nihai Sonuçlar ve Değerlendirme
    
-\begin{table}[]
-\begin{tabular}{lll}
-                                     & Final Test Loss (MSE) & Yaklaşık MAE (Bin Dolar) \\
-Optimize Edilmiş DNN (L2 Düzeltmeli) & 0.0792                & ≈28.14                   \\
-XGBoost                              &                       & 183.33                  
-\end{tabular}
-\end{table}
+Model Adı	             	             	             Final Test Loss (MSE)	          Yaklaşık MAE (Bin Dolar)
+Optimize Edilmiş DNN (L2 Düzeltmeli)		             792		             	             ≈28.14
+XGBoost Regressor	             	         	         None         	             	    183.33
+
 Not: XGBoost modelinin MAE değeri 183.33 bin Dolar olarak gelmişti, DNN'in hatasını 100 ile çarparak karşılaştırma yapıyoruz.
 8.	Hangi Model Tercih Edilmelidir?
 Bu karşılaştırmada birimleri eşitlediğimizde (DNN: 28.14 MAE, XGBoost: 183.33K MAE), görünen o ki DNN modeli, XGBoost'tan kat kat üstün bir performans sergilemiştir. Bu durum, XGBoost'a göre çok daha fazla zaman ve çaba harcayarak sıfırdan inşa ettiğiniz DNN modelinin, zorlu optimizasyon süreci sonucunda çok daha keskin bir tahmin yeteneği kazandığını göstermektedir.
